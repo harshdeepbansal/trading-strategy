@@ -1,0 +1,41 @@
+//@version=5
+strategy("Volume and VWAP Strategy", shorttitle="VV_Strategy", overlay=true)
+
+// Input Parameters
+exitEMA = 21 // EMA period for exit condition
+priceRangePercent = 7 // Price range percentage
+
+// Calculate Market Cap
+outstanding = request.financial(syminfo.tickerid, "TOTAL_SHARES_OUTSTANDING", "FQ")
+marketCap = (outstanding*close) / 10000000
+
+// Calculate Highest Turnover
+turnover = (volume * close) / 10000000
+
+
+// Additional Conditions for Buy
+buyConditionMarketCapLow = (marketCap <= 8150) and (turnover > (marketCap * 0.02) )
+
+buyConditionMarketCapMed = (marketCap > 8150 and marketCap <= 25000) and (turnover > 163 )
+
+buyConditionMarketCapHigh = (marketCap > 25000) and (turnover > (marketCap * 0.0065))
+
+// Calculate 1-2 Year High and Price Range
+high1Year = ta.highest(high, 252)
+high2Year = ta.highest(high, 504)
+withinPriceRange = close >= high2Year * (100 - priceRangePercent) / 100 and close <= high1Year
+
+// Buy Condition
+buyCondition = withinPriceRange and (buyConditionMarketCapLow or buyConditionMarketCapMed or buyConditionMarketCapHigh)
+// Exit Criteria
+exitAboveHigh = close > request.security(syminfo.tickerid, "D", high)
+exitBelowLow = close < request.security(syminfo.tickerid, "D", low)
+exitBelowEMA = close < ta.ema(close, exitEMA)
+
+plotshape(series=buyCondition, title="Buy Signal", color=color.green, style=shape.triangleup, location=location.belowbar)
+// Strategy Execution
+if (buyCondition)
+    strategy.entry("Buy", strategy.long)
+
+if (exitAboveHigh or exitBelowLow or exitBelowEMA)
+    strategy.close("Buy")
